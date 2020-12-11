@@ -95,6 +95,7 @@ namespace GameServer
                 {
                     client.Shutdown(SocketShutdown.Both);
                     client.Close();
+                    Console.WriteLine("Exception with socket");
 
                 } catch (Newtonsoft.Json.JsonException e)
                 {
