@@ -1,6 +1,7 @@
 ﻿using Newtonsoft.Json;
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.IO;
 using System.Net;
 using System.Net.Sockets;
@@ -16,10 +17,37 @@ namespace GameServer
         public int X { get; set; }
     }
 
+    class PlayerInfo
+    {
+        public Socket socket { get; set; }
+        public int x { get; set; }
+        public int y { get; set; }
+        public string direction { get; set; }
+    }
+
+    class PlayerInfoUpdate
+    { 
+        public int x { get; set; }
+        public int y { get; set; }
+        public string direction { get; set; }
+    }
+
+    class GameInfo
+    {
+        public List<Player> players = new List<Player>();
+    }
+
+    class Player
+    {
+        public int x { get; set; }
+        public int y { get; set; }
+        public string direction { get; set; }
+    }
+
     class Program
     {
         static TcpListener listener;
-        private static ConcurrentDictionary<string, Socket> currentUsers = new ConcurrentDictionary<string, Socket>();
+        private static ConcurrentDictionary<string, PlayerInfo> currentUsers = new ConcurrentDictionary<string, PlayerInfo>();
         static void Main(string[] args)
         {
             Console.Title = "Game server";
@@ -43,7 +71,7 @@ namespace GameServer
             var curListener = (TcpListener)ar.AsyncState;
             var client = curListener.EndAcceptSocket(ar);
             Console.WriteLine("Client connecting");
-            Handshake(client);
+            string name = Handshake(client);
 
             new Thread(() =>
             {
@@ -84,18 +112,21 @@ namespace GameServer
                         memoryStream.Close();
 
                         string data = Encoding.UTF8.GetString(totalBytes);
-                        Hello hello = JsonConvert.DeserializeObject<Hello>(data);
-
                         Console.WriteLine($"Data is:{data}");
-                        Console.WriteLine($"hello- message:{hello.Message}, x:{hello.X}");
-                        Console.WriteLine("Sending to client, totalbytes: " + totalBytes + ", " + totalBytes.Length);
-                        client.Send(totalBytes);
+
+                        HandleData(name, data);
+
+                        //Console.WriteLine($"hello- message:{hello.Message}, x:{hello.X}");
+                        //Console.WriteLine("Sending to client, totalbytes: " + totalBytes + ", " + totalBytes.Length);
+                        //client.Send(totalBytes);
+                        SendGameInfo(name);
                     }
                 } catch (SocketException e)
                 {
                     client.Shutdown(SocketShutdown.Both);
                     client.Close();
                     Console.WriteLine("Exception with socket");
+                    Console.WriteLine(e);
 
                 } catch (Newtonsoft.Json.JsonException e)
                 {
@@ -107,6 +138,72 @@ namespace GameServer
             BeginAccepting(listener);
         }
 
+        private static void SendGameInfo(string name)
+        {
+            GameInfo gameInfo = new GameInfo();
+
+            foreach (var player in currentUsers)
+            {
+                if (!player.Key.Equals(name))
+                {
+                    Player player_info = new Player
+                    {
+                        x = player.Value.x,
+                        y = player.Value.y,
+                        direction = player.Value.direction
+                    };
+
+                    gameInfo.players.Add(player_info);
+                }
+            }
+
+            string jsonGameInfo = JsonConvert.SerializeObject(gameInfo);
+
+            PlayerInfo playerInfo = currentUsers[name];
+            playerInfo.socket.Send(Encoding.UTF8.GetBytes(jsonGameInfo));
+        }
+
+        private static void HandleData(string name, string data)
+        {
+            //var obj = JsonConvert.DeserializeObject(data, new JsonSerializerSettings { CheckAdditionalContent = false });
+            var obj = JsonConvert.DeserializeObject<PlayerInfoUpdate>(data, new JsonSerializerSettings { CheckAdditionalContent = false });
+            Console.WriteLine("Recived: " + obj.GetType().Name);
+
+            //todo check object type
+            var infoUpdate = obj as PlayerInfoUpdate;
+
+            if (infoUpdate != null)
+            {
+                Console.WriteLine($"Recived: {infoUpdate.x} {infoUpdate.y} {infoUpdate.direction}");
+
+                PlayerInfo playerInfo = currentUsers[name];
+                playerInfo.x = infoUpdate.x;
+                playerInfo.y = infoUpdate.y;
+                playerInfo.direction = infoUpdate.direction;
+            }
+            else
+            {
+                Console.WriteLine("is null");
+            }
+            
+            //todo check object type
+            //if (obj is PlayerInfoUpdate)
+            //{
+            //    var infoUpdate2 = obj as PlayerInfoUpdate;
+
+            //    Console.WriteLine($"Recived: {infoUpdate.x} {infoUpdate.y} {infoUpdate.direction}");
+
+            //    PlayerInfo playerInfo2 = currentUsers[name];
+            //    playerInfo.x = infoUpdate.x;
+            //    playerInfo.y = infoUpdate.y;
+            //    playerInfo.direction = infoUpdate.direction;
+            //}
+            //else
+            //{
+            //    Console.WriteLine(obj);
+            //}
+        }
+
         private static void EndConnection(Socket client)
         {
             Console.WriteLine("Connectio with: " + client.RemoteEndPoint.ToString() + " ended");
@@ -114,13 +211,16 @@ namespace GameServer
             client.Close();
         }
 
-        private static void Handshake(Socket client)
+        private static string Handshake(Socket client)
         {
             IPEndPoint iPEndPoint = client.RemoteEndPoint as IPEndPoint;
-            //string ip = iPEndPoint.Address.ToString();
-            currentUsers.TryAdd("Client" + currentUsers.Count + 1, client);
-            byte[] data = Encoding.UTF8.GetBytes($"Welcome to the GameServer! Client ip: {iPEndPoint}");
+            string ip = iPEndPoint.Address.ToString();
+            string name = "Client" + currentUsers.Count + 1;
+            currentUsers.TryAdd(name, new PlayerInfo { socket = client });
+            byte[] data = Encoding.UTF8.GetBytes($"Welcome to the GameServer! Client ip: {ip}");
             client.Send(data);
+
+            return name;
         }
     }
 }
