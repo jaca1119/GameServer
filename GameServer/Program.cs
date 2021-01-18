@@ -39,6 +39,7 @@ namespace GameServer
         public int x { get; set; }
         public int y { get; set; }
         public string direction { get; set; }
+        public string name { get; set; }
     }
 
     class Player
@@ -214,6 +215,7 @@ namespace GameServer
             else if (obj.Value<string>("type").Equals("bullet_info"))
             {
                 var bulletInfo = obj.ToObject<BulletInfo>();
+                bulletInfo.name = name;
                 string bulletInfoStr = JsonConvert.SerializeObject(bulletInfo);
 
                 foreach (var player in currentUsers)
@@ -242,7 +244,7 @@ namespace GameServer
         {
             IPEndPoint iPEndPoint = client.RemoteEndPoint as IPEndPoint;
             string ip = iPEndPoint.Address.ToString();
-            string name = "Client" + (currentUsers.Count + 1);
+            string name = "Client" + (Guid.NewGuid());
             currentUsers.TryAdd(name, new PlayerInfo { socket = client });
             byte[] data = Encoding.UTF8.GetBytes($"Welcome to the GameServer! Client ip: {ip}");
             client.Send(data);
