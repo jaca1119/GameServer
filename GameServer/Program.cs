@@ -1,4 +1,5 @@
-﻿using Newtonsoft.Json;
+﻿using GameServer.Models;
+using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Concurrent;
@@ -12,43 +13,6 @@ using System.Threading;
 
 namespace GameServer
 {
-    class PlayerInfo
-    {
-        public Socket socket { get; set; }
-        public int x { get; set; }
-        public int y { get; set; }
-        public string direction { get; set; }
-    }
-
-    class PlayerInfoUpdate
-    { 
-        public int x { get; set; }
-        public int y { get; set; }
-        public string direction { get; set; }
-    }
-
-    class GameInfo
-    {
-        public string type = "game_info";
-        public List<Player> players = new List<Player>();
-    }
-
-    class BulletInfo
-    {
-        public string type = "bullet_info";
-        public int x { get; set; }
-        public int y { get; set; }
-        public string direction { get; set; }
-        public string name { get; set; }
-    }
-
-    class Player
-    {
-        public string name { get; set; }
-        public int x { get; set; }
-        public int y { get; set; }
-        public string direction { get; set; }
-    }
 
     class Program
     {
